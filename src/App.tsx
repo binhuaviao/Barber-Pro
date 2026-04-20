@@ -49,6 +49,26 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  const handleLogin = async () => {
+    if (loginLoading) return;
+    setLoginLoading(true);
+    setLoginError(null);
+    try {
+      await loginWithGoogle();
+    } catch (error: any) {
+      console.error(error);
+      // Only show error if it's not a user cancellation
+      if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
+        setLoginError('Falha ao entrar com Google. Tente novamente.');
+      }
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-height-screen bg-black flex items-center justify-center">
@@ -82,12 +102,28 @@ export default function App() {
           <p className="text-zinc-500 mb-8">O sistema definitivo para barbearias de alto nível.</p>
           
           <button 
-            onClick={loginWithGoogle}
-            className="w-full btn-primary flex items-center justify-center gap-3 py-3"
+            disabled={loginLoading}
+            onClick={handleLogin}
+            className="w-full btn-primary flex items-center justify-center gap-3 py-3 disabled:opacity-50 disabled:grayscale transition-all"
           >
-            <img src="https://www.google.com/favicon.ico" className="w-5 h-5 grayscale" alt="Google" />
-            Entrar com Google
+            {loginLoading ? (
+               <motion.div 
+                 animate={{ rotate: 360 }}
+                 transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+               >
+                 <ScissorsIcon size={20} />
+               </motion.div>
+            ) : (
+              <img src="https://www.google.com/favicon.ico" className="w-5 h-5 grayscale" alt="Google" />
+            )}
+            {loginLoading ? 'Conectando...' : 'Entrar com Google'}
           </button>
+
+          {loginError && (
+             <p className="mt-4 text-xs text-red-500 font-medium">
+               {loginError}
+             </p>
+          )}
           
           <p className="mt-8 text-xs text-zinc-500 uppercase tracking-widest">Premium Finance Management</p>
         </motion.div>
