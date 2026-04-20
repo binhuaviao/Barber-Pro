@@ -71,7 +71,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-height-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <motion.div 
           animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
           transition={{ repeat: Infinity, duration: 2 }}

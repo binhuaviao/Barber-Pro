@@ -23,6 +23,22 @@ Essas plataformas são gratuitas e ótimas para React:
 2. Clique em "New Project" e conecte seu repositório do GitHub.
 3. Elas detectarão que é um projeto Vite e farão tudo sozinhas.
 
+## ⚠️ Ação Obrigatória (Firebase)
+Se o seu site carregar mas o login não funcionar ou a página ficar branca, você **precisa** autorizar seu novo domínio no Firebase:
+1. Vá ao [Console do Firebase](https://console.firebase.google.com/).
+2. Selecione seu projeto.
+3. No menu lateral, vá em **Authentication** > **Settings** (aba no topo).
+4. Clique em **Authorized domains**.
+5. Clique em **Add domain** e cole seu link (ex: `sistemabarberpro.netlify.app`).
+6. Sem isso, o Google não permitirá que seus usuários façam login.
+
+## 🗄️ Integração Supabase
+O projeto agora conta com o SDK do Supabase configurado.
+1. Vá em **Settings** e adicione as seguintes variáveis de ambiente:
+   - `VITE_SUPABASE_URL`: Sua URL do Supabase.
+   - `VITE_SUPABASE_ANON_KEY`: Sua chave anônima.
+2. O cliente está pronto para uso em `src/lib/supabase.ts`.
+
 ## 🛠️ Execução Local
 
 Se desejar rodar o projeto no seu computador:
