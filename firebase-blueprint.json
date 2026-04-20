@@ -1,0 +1,110 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Basic user data stored at the root of the user document",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "revenueGoal": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Barber's client information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Offered services like hair cut, beard trim",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "duration": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "price"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Scheduled haircut or service",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "concluido", "cancelado"] },
+        "price": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientId", "date", "status"]
+    },
+    "FinancialEntry": {
+      "title": "Financial Entry",
+      "description": "Income or Expense registration",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["entrada", "saida"] },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "referenceId": { "type": "string", "description": "Optional reference to appointment or product" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "amount", "date"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Barbershop items for sale",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "stock": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "price"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Root user profile"
+    },
+    "/users/{userId}/clientes/{clientId}": {
+      "schema": "Client",
+      "description": "Clients of the barber"
+    },
+    "/users/{userId}/servicos/{serviceId}": {
+      "schema": "Service",
+      "description": "Services list"
+    },
+    "/users/{userId}/produtos/{productId}": {
+      "schema": "Product",
+      "description": "Products for sale"
+    },
+    "/users/{userId}/agendamentos/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "Booked appointments"
+    },
+    "/users/{userId}/financeiro/{entryId}": {
+      "schema": "FinancialEntry",
+      "description": "Ledger entries"
+    }
+  }
+}
