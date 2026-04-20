@@ -1,20 +1,36 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# BarberPro SaaS - Premium Management
 
-# Run and deploy your AI Studio app
+O sistema definitivo para barbearias de alto nível, com gestão financeira, agendamentos e controle de estoque.
 
-This contains everything you need to run your app locally.
+## 🚀 Como acessar Online
 
-View your app in AI Studio: https://ai.studio/apps/23fff404-6bdb-4d57-8c01-4995853550db
+Para acessar seu projeto online a partir do GitHub, você tem duas opções principais:
 
-## Run Locally
+### 1. GitHub Pages (Automatizado)
+Eu configurei um **GitHub Action** que agora está no seu repositório. Toda vez que você fizer um "push" para a branch `main`, o GitHub irá automaticamente:
+1. Criar uma nova branch chamada `gh-pages`.
+2. Publicar o site online.
 
-**Prerequisites:**  Node.js
+**Para ativar (após o commit):**
+- Vá no seu repositório no GitHub.
+- Vá em **Settings** > **Pages**.
+- Em "Build and deployment", escolha a branch `gh-pages` e a pasta `/(root)`.
+- O link aparecerá no topo desta página.
 
+### 2. Vercel ou Netlify (Recomendado para iniciantes)
+Essas plataformas são gratuitas e ótimas para React:
+1. Crie uma conta no [Vercel](https://vercel.com) ou [Netlify](https://netlify.com).
+2. Clique em "New Project" e conecte seu repositório do GitHub.
+3. Elas detectarão que é um projeto Vite e farão tudo sozinhas.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🛠️ Execução Local
+
+Se desejar rodar o projeto no seu computador:
+
+1. Clone o repositório.
+2. Instale as dependências: `npm install`.
+3. Crie um arquivo `.env` e adicione suas chaves (veja `.env.example`).
+4. Rode o comando: `npm run dev`.
+
+---
+Desenvolvido com BarberPro SaaS.
