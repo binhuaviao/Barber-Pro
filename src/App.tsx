@@ -20,7 +20,9 @@ import {
   TrendingUp,
   Plus,
   Package,
-  Database
+  Database,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -41,6 +43,20 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    return saved ? saved === 'dark' : true;
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -72,7 +88,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className={cn("min-h-screen flex items-center justify-center transition-colors duration-300", isDarkMode ? "bg-black" : "bg-white")}>
         <motion.div 
           animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
           transition={{ repeat: Infinity, duration: 2 }}
@@ -86,7 +102,7 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4 relative overflow-hidden text-[#e5e5e5]">
+      <div className={cn("min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden transition-colors duration-300", isDarkMode ? "bg-[#050505] text-[#e5e5e5]" : "bg-zinc-50 text-zinc-900")}>
         {/* Background Accents */}
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-gold/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-gold/5 rounded-full blur-[120px]" />
@@ -143,7 +159,7 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#050505] text-[#e5e5e5] flex">
+    <div className={cn("min-h-screen flex transition-colors duration-300", isDarkMode ? "dark bg-black text-[#e5e5e5]" : "bg-zinc-50 text-zinc-900")}>
       {/* Sidebar Mobile Overlay */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -160,7 +176,8 @@ export default function App() {
       {/* Sidebar */}
       <motion.aside 
         className={cn(
-          "fixed inset-y-0 left-0 w-64 bg-black border-r border-[#1f1f1f] z-50 transform transition-transform duration-300 lg:translate-x-0 lg:static",
+          "fixed inset-y-0 left-0 w-64 border-r z-50 transform transition-transform duration-300 lg:translate-x-0 lg:static",
+          isDarkMode ? "bg-black border-[#1f1f1f]" : "bg-white border-zinc-200",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -184,7 +201,9 @@ export default function App() {
                   "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-semibold",
                   currentView === item.id 
                     ? "sidebar-active" 
-                    : "text-zinc-500 hover:bg-zinc-900/50 hover:text-zinc-200"
+                    : isDarkMode 
+                      ? "text-zinc-500 hover:bg-zinc-900/50 hover:text-zinc-200"
+                      : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
                 )}
               >
                 <item.icon size={18} />
@@ -194,15 +213,23 @@ export default function App() {
             
             {/* Support CTA */}
             <div className="mt-8 px-2">
-              <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 relative overflow-hidden group">
+              <div className={cn(
+                "p-4 rounded-xl border relative overflow-hidden group transition-colors",
+                isDarkMode 
+                  ? "bg-zinc-900 border-zinc-800" 
+                  : "bg-gold/10 border-gold/20"
+              )}>
                 <div className="absolute -top-6 -right-6 w-16 h-16 bg-gold/10 rounded-full blur-xl group-hover:bg-gold/20 transition-all" />
                 <p className="text-[10px] font-black text-gold uppercase tracking-[0.2em] mb-2">Apoie o Projeto</p>
-                <p className="text-[11px] text-zinc-400 mb-4 leading-relaxed font-medium">Ajude-nos a manter e evoluir o BarberPro via Mercado Pago.</p>
+                <p className={cn("text-[11px] mb-4 leading-relaxed font-medium", isDarkMode ? "text-zinc-400" : "text-gold-dark font-semibold")}>Ajude-nos a manter e evoluir o BarberPro via Mercado Pago.</p>
                 <a 
                   href="https://mpago.la/1FTq8fL" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="block w-full text-center py-2 bg-white text-black text-[11px] font-bold rounded-lg hover:bg-gold transition-colors active:scale-95"
+                  className={cn(
+                    "block w-full text-center py-2 text-[11px] font-bold rounded-lg transition-colors active:scale-95",
+                    isDarkMode ? "bg-white text-black hover:bg-gold" : "btn-primary hover:scale-[1.02]"
+                  )}
                 >
                   APOIAR AGORA
                 </a>
@@ -210,7 +237,7 @@ export default function App() {
             </div>
           </nav>
 
-          <div className="p-4 border-t border-[#1f1f1f]">
+          <div className={cn("p-4 border-t", isDarkMode ? "border-[#1f1f1f]" : "border-zinc-200")}>
             <div className="flex items-center gap-3 px-4 py-2 mb-4">
               <img 
                 src={user.photoURL || "https://picsum.photos/seed/user/100"} 
@@ -237,7 +264,10 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Header */}
-        <header className="h-20 border-b border-[#1f1f1f] flex items-center justify-between px-4 md:px-8 bg-black/30 backdrop-blur-md sticky top-0 z-30">
+        <header className={cn(
+          "h-20 border-b flex items-center justify-between px-4 md:px-8 backdrop-blur-md sticky top-0 z-30 transition-colors duration-300",
+          isDarkMode ? "bg-black/30 border-[#1f1f1f]" : "bg-white/70 border-zinc-200"
+        )}>
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setSidebarOpen(true)}
@@ -253,6 +283,14 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-2.5 rounded-xl border border-zinc-200 dark:border-[#1f1f1f] hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors text-zinc-500"
+              title={isDarkMode ? "Clarear Tema" : "Escurecer Tema"}
+            >
+              {isDarkMode ? <Sun size={20} className="text-gold" /> : <Moon size={20} className="text-zinc-600" />}
+            </button>
+
             <button 
               onClick={() => setCurrentView('servicos')} 
               className="px-3 md:px-4 py-2 gold-gradient text-black rounded-lg text-xs font-black shadow-lg shadow-yellow-900/10 active:scale-95 transition-all flex items-center gap-1"
@@ -273,7 +311,7 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              {currentView === 'dashboard' && <Dashboard uid={user.uid} />}
+              {currentView === 'dashboard' && <Dashboard uid={user.uid} onNavigate={setCurrentView} />}
               {currentView === 'clientes' && <Clients uid={user.uid} />}
               {currentView === 'servicos' && <Services uid={user.uid} />}
               {currentView === 'produtos' && <Products uid={user.uid} />}

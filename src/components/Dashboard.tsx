@@ -38,9 +38,10 @@ import { cn } from '../lib/utils';
 
 interface DashboardProps {
   uid: string;
+  onNavigate?: (view: any) => void;
 }
 
-export default function Dashboard({ uid }: DashboardProps) {
+export default function Dashboard({ uid, onNavigate }: DashboardProps) {
   const [stats, setStats] = useState({
     day: 0,
     week: 0,
@@ -355,10 +356,10 @@ export default function Dashboard({ uid }: DashboardProps) {
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-card)" vertical={false} />
                 <XAxis 
                   dataKey="name" 
-                  stroke="#52525b" 
+                  stroke="var(--text-secondary)" 
                   fontSize={10} 
                   tickLine={false} 
                   axisLine={false} 
@@ -368,7 +369,7 @@ export default function Dashboard({ uid }: DashboardProps) {
                   hide
                 />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#0f0f0f', border: '1px solid #1f1f1f', borderRadius: '12px' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-card)', borderRadius: '12px' }}
                   itemStyle={{ color: '#d4af37' }}
                   cursor={{ fill: 'rgba(212,175,55,0.05)' }}
                 />
@@ -420,7 +421,10 @@ export default function Dashboard({ uid }: DashboardProps) {
             )}
           </div>
           
-          <button className="w-full mt-6 py-4 text-xs font-bold text-zinc-500 hover:text-[#d4af37] transition-all uppercase tracking-widest border-t border-zinc-800 pt-4">
+          <button 
+            onClick={() => onNavigate?.('agendamentos')}
+            className="w-full mt-6 py-4 text-xs font-bold text-zinc-500 hover:text-[#d4af37] transition-all uppercase tracking-widest border-t border-zinc-800 pt-4"
+          >
             Ver agenda completa →
           </button>
         </div>

@@ -4,16 +4,39 @@
   --color-gold: #d4af37;
   --color-gold-light: #f2d06b;
   --color-gold-dark: #b8860b;
-  --color-dark-bg: #050505;
-  --color-card-bg: #0f0f0f;
-  --color-card-border: #1f1f1f;
   
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
+  :root {
+    --bg-main: #f8fafc;
+    --bg-card: #ffffff;
+    --border-card: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --bg-input: #ffffff;
+    --bg-btn-secondary: #f1f5f9;
+    --border-btn-secondary: #e2e8f0;
+    --text-btn-secondary: #0f172a;
+  }
+
+  .dark {
+    --bg-main: #050505;
+    --bg-card: #0f0f0f;
+    --border-card: #1f1f1f;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --bg-input: #0f0f0f;
+    --bg-btn-secondary: #18181b;
+    --border-btn-secondary: #27272a;
+    --text-btn-secondary: #ffffff;
+  }
+
   body {
-    @apply bg-zinc-950 text-zinc-200 antialiased;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    @apply antialiased transition-colors duration-300;
   }
 }
 
@@ -26,11 +49,12 @@
 }
 
 .gold-border {
-  @apply border-[#d4af37]/30;
+  border-color: #d4af374d;
 }
 
 .card-bg {
-  @apply bg-[#0f0f0f] border border-[#1f1f1f];
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-card);
 }
 
 .glass {
@@ -38,7 +62,9 @@
 }
 
 .glass-card {
-  @apply bg-[#0f0f0f] border border-[#1f1f1f] rounded-2xl overflow-hidden;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-card);
+  @apply rounded-2xl overflow-hidden;
 }
 
 .sidebar-active {
@@ -46,7 +72,7 @@
 }
 
 .stat-card:hover {
-  @apply border-[#d4af37]/50;
+  border-color: #d4af3780;
   transition: all 0.3s ease;
 }
 
@@ -56,9 +82,23 @@
 }
 
 .btn-secondary {
-  @apply bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-white font-semibold py-2 px-4 rounded-lg transition-all;
+  background-color: var(--bg-btn-secondary);
+  border: 1px solid var(--border-btn-secondary);
+  color: var(--text-btn-secondary);
+  @apply hover:opacity-80 font-semibold py-2 px-4 rounded-lg transition-all;
 }
 
 .input-field {
-  @apply bg-[#0f0f0f] border border-[#1f1f1f] rounded-lg px-4 py-2 focus:outline-none focus:border-[#d4af37]/50 transition-colors;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-card);
+  color: var(--text-primary);
+  @apply rounded-lg px-4 py-2 focus:outline-none focus:border-[#d4af37]/50 transition-colors;
+}
+
+.text-zinc-500 {
+  color: var(--text-secondary);
+}
+
+.text-white {
+  color: var(--text-primary);
 }
