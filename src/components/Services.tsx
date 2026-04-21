@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Plus, Scissors, Edit2, Trash2, X, Clock } from 'lucide-react';
+import { Plus, Scissors, Edit2, Trash2, X, Clock, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -13,6 +13,7 @@ export default function Services({ uid }: ServicesProps) {
   const [services, setServices] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({ name: '', price: '', duration: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -20,33 +21,50 @@ export default function Services({ uid }: ServicesProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, `users/${uid}/servicos`), orderBy('name'));
+    if (!uid) return;
+
+    const q = query(
+      collection(db, `users/${uid}/servicos`),
+      orderBy('name', 'asc')
+    );
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setServices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setServices(data);
+    }, (err) => {
+      console.error(err);
+      setError('Erro ao carregar serviços.');
     });
+
     return () => unsubscribe();
   }, [uid]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
-      const data = {
+      const payload = {
         name: formData.name,
         price: Number(formData.price),
-        duration: Number(formData.duration)
+        duration: Number(formData.duration),
+        updatedAt: serverTimestamp()
       };
 
       if (editingId) {
-        await updateDoc(doc(db, `users/${uid}/servicos`, editingId), data);
+        await updateDoc(doc(db, `users/${uid}/servicos`, editingId), payload);
       } else {
-        await addDoc(collection(db, `users/${uid}/servicos`), data);
+        await addDoc(collection(db, `users/${uid}/servicos`), {
+          ...payload,
+          createdAt: serverTimestamp()
+        });
       }
       setIsModalOpen(false);
       setFormData({ name: '', price: '', duration: '' });
       setEditingId(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setError(err.message || 'Erro ao salvar serviço');
     } finally {
       setLoading(false);
     }
@@ -60,7 +78,12 @@ export default function Services({ uid }: ServicesProps) {
 
   const confirmDelete = async () => {
     if (deleteId) {
-      await deleteDoc(doc(db, `users/${uid}/servicos`, deleteId));
+      try {
+        await deleteDoc(doc(db, `users/${uid}/servicos`, deleteId));
+      } catch (err) {
+        console.error(err);
+        setError('Erro ao excluir serviço');
+      }
       setDeleteId(null);
     }
   };
@@ -101,6 +124,13 @@ export default function Services({ uid }: ServicesProps) {
           Novo Serviço
         </button>
       </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm">
+          <AlertCircle size={18} />
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {services.map(service => (

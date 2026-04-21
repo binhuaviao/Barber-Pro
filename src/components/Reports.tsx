@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { collection, query, getDocs, orderBy, where, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { FileText, Download, Filter, TrendingUp, Award, Clock } from 'lucide-react';
 import { motion } from 'motion/react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface ReportsProps {
   uid: string;
@@ -22,43 +24,116 @@ export default function Reports({ uid }: ReportsProps) {
     monthlyData: []
   });
 
+  const [revenueGoal, setRevenueGoal] = useState(5000);
+
   useEffect(() => {
-    const fetchData = async () => {
-      const finSnap = await getDocs(query(collection(db, `users/${uid}/financeiro`)));
-      const appSnap = await getDocs(query(collection(db, `users/${uid}/agendamentos`), where('status', '==', 'concluido')));
+    if (!uid) return;
 
-      let revenue = 0;
-      let expenses = 0;
-      const rankingMap: Record<string, { count: number, revenue: number }> = {};
+    // 0. Fetch Settings
+    const unsubscribeSettings = onSnapshot(doc(db, 'users', uid), (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        setRevenueGoal(d.revenue_goal || d.revenueGoal || 5000);
+      }
+    });
 
-      finSnap.docs.forEach(d => {
-        const item = d.data();
-        if (item.type === 'entrada') revenue += item.amount;
-        else expenses += item.amount;
+    // 1. Finance
+    const unsubscribeFinance = onSnapshot(collection(db, `users/${uid}/financeiro`), (snapshot) => {
+      const finData = snapshot.docs.map(doc => doc.data());
+      
+      // 2. Completed Appointments
+      const qApp = query(collection(db, `users/${uid}/agendamentos`), where('status', '==', 'concluido'));
+      const unsubscribeApp = onSnapshot(qApp, (appSnapshot) => {
+        const appData = appSnapshot.docs.map(doc => doc.data());
+
+        let revenue = 0;
+        let expenses = 0;
+        const rankingMap: Record<string, { count: number, revenue: number }> = {};
+
+        finData.forEach((item: any) => {
+          const amount = Number(item.amount);
+          if (item.type === 'entrada') revenue += amount;
+          else expenses += amount;
+        });
+
+        appData.forEach((item: any) => {
+          const sName = item.service_name || 'Outros';
+          if (!rankingMap[sName]) rankingMap[sName] = { count: 0, revenue: 0 };
+          rankingMap[sName].count += 1;
+          rankingMap[sName].revenue += Number(item.price || 0);
+        });
+
+        const ranking = Object.entries(rankingMap)
+          .map(([name, vals]) => ({ name, ...vals }))
+          .sort((a, b) => b.revenue - a.revenue);
+
+        setData({
+          totalRevenue: revenue,
+          totalExpenses: expenses,
+          serviceRanking: ranking,
+          monthlyData: []
+        });
       });
 
-      appSnap.docs.forEach(d => {
-        const item = d.data();
-        const sName = item.serviceName || 'Outros';
-        if (!rankingMap[sName]) rankingMap[sName] = { count: 0, revenue: 0 };
-        rankingMap[sName].count += 1;
-        rankingMap[sName].revenue += item.price;
-      });
+      return () => {
+        unsubscribeApp();
+        unsubscribeSettings();
+      };
+    });
 
-      const ranking = Object.entries(rankingMap)
-        .map(([name, vals]) => ({ name, ...vals }))
-        .sort((a, b) => b.revenue - a.revenue);
-
-      setData({
-        totalRevenue: revenue,
-        totalExpenses: expenses,
-        serviceRanking: ranking,
-        monthlyData: [] // Would need more logic for multiple months
-      });
-    };
-
-    fetchData();
+    return () => unsubscribeFinance();
   }, [uid]);
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const now = new Date();
+    const dateStr = format(now, 'dd/MM/yyyy HH:mm');
+
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(212, 175, 55); // Gold
+    doc.text('BarberPro - Relatório Executivo', 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Gerado em: ${dateStr}`, 14, 30);
+
+    // Summary
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text('Resumo Financeiro', 14, 45);
+
+    autoTable(doc, {
+      startY: 50,
+      head: [['Indicador', 'Valor']],
+      body: [
+        ['Faturamento Total', `R$ ${data.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+        ['Despesas Totais', `R$ ${data.totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+        ['Lucro Líquido', `R$ ${(data.totalRevenue - data.totalExpenses).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+        ['Meta Mensal', `R$ ${revenueGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+        ['Atingimento da Meta', `${Math.round((data.totalRevenue / revenueGoal) * 100)}%`]
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: [212, 175, 55], textColor: [0, 0, 0] }
+    });
+
+    // Ranking
+    doc.text('Ranking de Serviços', 14, (doc as any).lastAutoTable.finalY + 15);
+
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 20,
+      head: [['Serviço', 'Atendimentos', 'Receita']],
+      body: data.serviceRanking.map(s => [
+        s.name,
+        s.count.toString(),
+        `R$ ${s.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [30, 30, 30], textColor: [255, 255, 255] }
+    });
+
+    doc.save(`relatorio-barberpro-${format(now, 'yyyy-MM-dd')}.pdf`);
+  };
 
   return (
     <div className="space-y-8">
@@ -67,7 +142,10 @@ export default function Reports({ uid }: ReportsProps) {
           <h1 className="text-2xl font-bold">Relatórios e Insights</h1>
           <p className="text-zinc-500">Análise profunda do seu negócio e metas.</p>
         </div>
-        <button className="btn-secondary flex items-center gap-2">
+        <button 
+          onClick={handleExportPDF}
+          className="btn-secondary flex items-center gap-2"
+        >
           <Download size={18} />
           Exportar PDF
         </button>
@@ -118,7 +196,7 @@ export default function Reports({ uid }: ReportsProps) {
                 </div>
                 <div className="text-right">
                    <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold mb-1">Meta</p>
-                   <p className="text-xl font-bold text-zinc-400">R$ 10.000,00</p>
+                   <p className="text-xl font-bold text-zinc-400">R$ {revenueGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
               </div>
 
@@ -126,12 +204,12 @@ export default function Reports({ uid }: ReportsProps) {
                 <div className="w-full bg-zinc-800 h-3 rounded-full overflow-hidden">
                   <motion.div 
                     initial={{ width: 0 }}
-                    animate={{ width: `${Math.min((data.totalRevenue / 10000) * 100, 100)}%` }}
+                    animate={{ width: `${Math.min((data.totalRevenue / revenueGoal) * 100, 100)}%` }}
                     className="bg-gold h-full shadow-[0_0_15px_rgba(212,175,55,0.4)]"
                   />
                 </div>
                 <p className="text-xs text-center text-zinc-500">
-                  Você atingiu <span className="text-gold font-bold">{Math.round((data.totalRevenue / 10000) * 100)}%</span> da sua meta este mês.
+                  Você atingiu <span className="text-gold font-bold">{Math.round((data.totalRevenue / revenueGoal) * 100)}%</span> da sua meta este mês.
                 </p>
               </div>
             </div>

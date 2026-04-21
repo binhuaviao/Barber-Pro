@@ -34,20 +34,22 @@ service cloud.firestore {
     // --- Validation Blueprints ---
 
     function isValidUser(data) {
-      return data.email is string && data.email.size() <= 256 &&
+      return (data.get('email', '') is string && data.get('email', '').size() <= 256) &&
              (data.get('displayName', '') is string && data.get('displayName', '').size() <= 128) &&
-             (data.get('revenueGoal', 0) is number);
+             (data.get('revenueGoal', 0) is number || data.get('revenue_goal', 0) is number);
     }
 
     function isValidClient(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 128 &&
              (data.get('phone', '') is string && data.get('phone', '').size() <= 32) &&
-             (data.get('email', '') is string && data.get('email', '').size() <= 256);
+             (data.get('email', '') is string && data.get('email', '').size() <= 256) &&
+             (data.get('notes', '') is string && data.get('notes', '').size() <= 1000);
     }
 
     function isValidService(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 128 &&
-             data.price is number && data.price >= 0;
+             (data.price is number && data.price >= 0) &&
+             (data.get('duration', 0) is number);
     }
 
     function isValidProduct(data) {
@@ -57,7 +59,8 @@ service cloud.firestore {
     }
 
     function isValidAppointment(data) {
-      return data.clientId is string && data.clientName is string &&
+      return (data.get('clientId', '') is string || data.get('client_id', '') is string) &&
+             (data.get('clientName', '') is string || data.get('client_name', '') is string) &&
              data.date is timestamp &&
              data.status in ['pending', 'concluido', 'cancelado'] &&
              data.price is number && data.price >= 0;
@@ -67,22 +70,29 @@ service cloud.firestore {
       return data.type in ['entrada', 'saida'] &&
              data.amount is number && data.amount >= 0 &&
              data.date is timestamp &&
-             (data.get('description', '') is string && data.get('description', '').size() <= 500);
+             (data.get('description', '') is string && data.get('description', '').size() <= 500) &&
+             (data.get('category', '') is string && data.get('category', '').size() <= 128) &&
+             (data.get('referenceId', '') is string || data.get('reference_id', '') is string || 
+              data.get('referenceId', null) == null || data.get('reference_id', null) == null);
     }
 
     // --- Match Groups ---
+
+    match /system/connection_test {
+      allow read: if true;
+    }
 
     match /users/{userId} {
       allow get: if isOwner(userId);
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if isOwner(userId) && isValidUser(incoming()) && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'revenueGoal', 'updatedAt']);
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'revenueGoal', 'revenue_goal', 'updatedAt']);
 
       match /clientes/{clientId} {
         allow list, get: if isOwner(userId);
         allow create: if isOwner(userId) && isValidId(clientId) && isValidClient(incoming());
         allow update: if isOwner(userId) && isValidClient(incoming()) &&
-                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'email', 'notes']);
+                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'email', 'notes', 'updatedAt']);
         allow delete: if isOwner(userId);
       }
 
@@ -90,7 +100,7 @@ service cloud.firestore {
         allow list, get: if isOwner(userId);
         allow create: if isOwner(userId) && isValidId(serviceId) && isValidService(incoming());
         allow update: if isOwner(userId) && isValidService(incoming()) &&
-                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'price', 'duration']);
+                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'price', 'duration', 'updatedAt']);
         allow delete: if isOwner(userId);
       }
 
@@ -98,7 +108,7 @@ service cloud.firestore {
         allow list, get: if isOwner(userId);
         allow create: if isOwner(userId) && isValidId(productId) && isValidProduct(incoming());
         allow update: if isOwner(userId) && isValidProduct(incoming()) &&
-                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'price', 'stock']);
+                      incoming().diff(existing()).affectedKeys().hasOnly(['name', 'price', 'stock', 'updatedAt']);
         allow delete: if isOwner(userId);
       }
 
@@ -106,7 +116,7 @@ service cloud.firestore {
         allow list, get: if isOwner(userId);
         allow create: if isOwner(userId) && isValidId(appointmentId) && isValidAppointment(incoming());
         allow update: if isOwner(userId) && isValidAppointment(incoming()) &&
-                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'date', 'price', 'serviceId', 'serviceName']);
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'date', 'price', 'serviceId', 'serviceName', 'service_id', 'service_name', 'clientId', 'clientName', 'client_id', 'client_name', 'updatedAt']);
         allow delete: if isOwner(userId);
       }
 
@@ -114,7 +124,7 @@ service cloud.firestore {
         allow list, get: if isOwner(userId);
         allow create: if isOwner(userId) && isValidId(entryId) && isValidFinancialEntry(incoming());
         allow update: if isOwner(userId) && isValidFinancialEntry(incoming()) &&
-                      incoming().diff(existing()).affectedKeys().hasOnly(['type', 'amount', 'date', 'description', 'category']);
+                      incoming().diff(existing()).affectedKeys().hasOnly(['type', 'amount', 'date', 'description', 'category', 'referenceId', 'reference_id', 'updatedAt']);
         allow delete: if isOwner(userId);
       }
     }

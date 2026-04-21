@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Plus, Search, User, Phone, Mail, MoreVertical, Edit2, Trash2, X } from 'lucide-react';
+import { safeDate } from '../lib/dateUtils';
+import { Plus, Search, User, Phone, Mail, Edit2, Trash2, X, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 
@@ -14,36 +15,54 @@ export default function Clients({ uid }: ClientsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Form State
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', notes: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, `users/${uid}/clientes`), orderBy('name'));
+    if (!uid) return;
+    
+    const q = query(
+      collection(db, `users/${uid}/clientes`),
+      orderBy('name', 'asc')
+    );
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setClients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setClients(data);
+    }, (err) => {
+      console.error(err);
+      setError('Erro ao carregar clientes do Firebase.');
     });
+
     return () => unsubscribe();
   }, [uid]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
       if (editingId) {
-        await updateDoc(doc(db, `users/${uid}/clientes`, editingId), formData);
+        await updateDoc(doc(db, `users/${uid}/clientes`, editingId), {
+          ...formData,
+          updatedAt: serverTimestamp()
+        });
       } else {
         await addDoc(collection(db, `users/${uid}/clientes`), {
           ...formData,
-          createdAt: Timestamp.now()
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
         });
       }
       setIsModalOpen(false);
       setFormData({ name: '', phone: '', email: '', notes: '' });
       setEditingId(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setError(err.message || 'Erro ao salvar cliente no Firebase');
     } finally {
       setLoading(false);
     }
@@ -57,7 +76,12 @@ export default function Clients({ uid }: ClientsProps) {
 
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este cliente?')) {
-      await deleteDoc(doc(db, `users/${uid}/clientes`, id));
+      try {
+        await deleteDoc(doc(db, `users/${uid}/clientes`, id));
+      } catch (error) {
+        console.error(error);
+        setError('Erro ao excluir cliente do Firebase');
+      }
     }
   };
 
@@ -92,6 +116,13 @@ export default function Clients({ uid }: ClientsProps) {
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm">
+          <AlertCircle size={18} />
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredClients.map(client => (
@@ -132,7 +163,7 @@ export default function Clients({ uid }: ClientsProps) {
             </div>
 
             <div className="mt-6 pt-4 border-t border-zinc-800 text-[10px] text-zinc-500 uppercase tracking-widest">
-              Cliente desde {format(client.createdAt?.toDate() || new Date(), 'MMM yyyy')}
+              Cliente desde {format(safeDate(client.createdAt), 'MMM yyyy')}
             </div>
           </motion.div>
         ))}

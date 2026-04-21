@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, Timestamp, doc, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, serverTimestamp, Timestamp, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { safeDate } from '../lib/dateUtils';
 import { 
   TrendingUp, 
   DollarSign, 
@@ -18,8 +19,20 @@ import {
   ResponsiveContainer, 
   Cell
 } from 'recharts';
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { 
+  format, 
+  startOfDay, 
+  endOfDay, 
+  startOfWeek, 
+  endOfWeek, 
+  startOfMonth, 
+  endOfMonth, 
+  isWithinInterval, 
+  subDays, 
+  subMonths, 
+  subWeeks, 
+  isSameDay 
+} from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -40,112 +53,186 @@ export default function Dashboard({ uid }: DashboardProps) {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [newGoal, setNewGoal] = useState('');
+  const [chartFilter, setChartFilter] = useState('7days');
+  const [allFinanceData, setAllFinanceData] = useState<any[]>([]);
 
   useEffect(() => {
     if (!uid) return;
 
-    // Listen to user profile
-    const unsubProfile = onSnapshot(doc(db, `users/${uid}`), (snap) => {
-      if (snap.exists()) {
-        setUserProfile(snap.data());
+    // 1. User Profile / Settings
+    const unsubscribeSettings = onSnapshot(doc(db, 'users', uid), (docSnap) => {
+      if (docSnap.exists()) {
+        setUserProfile(docSnap.data());
+      } else {
+        setUserProfile({ revenue_goal: 5000 });
       }
     });
 
-    // Listen to next appointments
-    const qNext = query(
-      collection(db, `users/${uid}/agendamentos`), 
-      where('status', '==', 'pending'),
-      where('date', '>=', Timestamp.now()),
+    // 2. Next Appointments
+    const nextAppQuery = query(
+      collection(db, `users/${uid}/agendamentos`),
       orderBy('date', 'asc')
     );
-    const unsubNext = onSnapshot(qNext, (snap) => {
-      setNextAppointments(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).slice(0, 3));
-    });
-
-    // Listen to financial entries to calculate stats
-    const q = query(collection(db, `users/${uid}/financeiro`));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    
+    const unsubscribeNextApp = onSnapshot(nextAppQuery, (snapshot) => {
+      const apps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Filter future appointments and pending status manually to avoid composite index requirements
       const now = new Date();
-      const today = { start: startOfDay(now), end: endOfDay(now) };
-      const week = { start: startOfWeek(now), end: endOfWeek(now) };
-      const month = { start: startOfMonth(now), end: endOfMonth(now) };
-
-      let dTotal = 0;
-      let wTotal = 0;
-      let mTotal = 0;
-      let totalIn = 0;
-      let totalOut = 0;
-
-      const dailyData: Record<string, number> = {};
-
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const date = data.date.toDate();
-        const amount = data.amount;
-
-        if (isWithinInterval(date, today)) {
-          if (data.type === 'entrada') dTotal += amount;
-        }
-        if (isWithinInterval(date, week)) {
-          if (data.type === 'entrada') wTotal += amount;
-        }
-        if (isWithinInterval(date, month)) {
-          if (data.type === 'entrada') mTotal += amount;
-        }
-
-        if (data.type === 'entrada') totalIn += amount;
-        if (data.type === 'saida') totalOut += amount;
-
-        // Group for chart (last 7 days)
-        const dayLabel = format(date, 'dd/MM');
-        dailyData[dayLabel] = (dailyData[dayLabel] || 0) + (data.type === 'entrada' ? amount : -amount);
+      const futureApps = apps.filter((a: any) => {
+        const d = safeDate(a.date);
+        return d >= now && (a.status === 'pending' || !a.status);
       });
-
-      setStats({
-        day: dTotal,
-        week: wTotal,
-        month: mTotal,
-        appointments: snapshot.size,
-        profit: totalIn - totalOut
-      });
-
-      // Format chart data
-      const last7Days = Object.entries(dailyData)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .slice(-7);
-      setChartData(last7Days);
+      setNextAppointments(futureApps.slice(0, 5));
     });
 
-    // Listen to appointments count
-    const qApp = query(collection(db, `users/${uid}/agendamentos`), where('status', '==', 'concluido'));
-    const unsubApp = onSnapshot(qApp, (snap) => {
-      setStats(prev => ({ ...prev, appointments: snap.size }));
+    // 3. Stats & Chart
+    const financeQuery = collection(db, `users/${uid}/financeiro`);
+    const unsubscribeFinance = onSnapshot(financeQuery, (snapshot) => {
+      const finData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAllFinanceData(finData);
+    });
+
+    // 4. Completed Appointments count
+    const completedAppsQuery = query(
+      collection(db, `users/${uid}/agendamentos`),
+      where('status', '==', 'concluido')
+    );
+    const unsubscribeCompleted = onSnapshot(completedAppsQuery, (snapshot) => {
+      setStats(prev => ({ ...prev, appointments: snapshot.size }));
     });
 
     return () => {
-      unsubscribe();
-      unsubApp();
-      unsubNext();
-      unsubProfile();
+      unsubscribeSettings();
+      unsubscribeNextApp();
+      unsubscribeFinance();
+      unsubscribeCompleted();
     };
   }, [uid]);
+
+  useEffect(() => {
+    if (!allFinanceData.length) return;
+
+    const now = new Date();
+    const todayInterval = { start: startOfDay(now), end: endOfDay(now) };
+    const weekInterval = { start: startOfWeek(now), end: endOfWeek(now) };
+    const monthInterval = { start: startOfMonth(now), end: endOfMonth(now) };
+
+    let dTotal = 0;
+    let wTotal = 0;
+    let mTotal = 0;
+    let totalIn = 0;
+    let totalOut = 0;
+
+    // Filters for chart
+    let chartStart = subDays(now, 6);
+    let chartEnd = now;
+
+    switch (chartFilter) {
+      case 'today':
+        chartStart = startOfDay(now);
+        chartEnd = endOfDay(now);
+        break;
+      case 'yesterday':
+        chartStart = startOfDay(subDays(now, 1));
+        chartEnd = endOfDay(subDays(now, 1));
+        break;
+      case 'today_yesterday':
+        chartStart = startOfDay(subDays(now, 1));
+        chartEnd = endOfDay(now);
+        break;
+      case '7days':
+        chartStart = subDays(now, 6);
+        chartEnd = now;
+        break;
+      case '14days':
+        chartStart = subDays(now, 13);
+        chartEnd = now;
+        break;
+      case '28days':
+        chartStart = subDays(now, 27);
+        chartEnd = now;
+        break;
+      case '30days':
+        chartStart = subDays(now, 29);
+        chartEnd = now;
+        break;
+      case 'this_week':
+        chartStart = startOfWeek(now, { weekStartsOn: 1 });
+        chartEnd = endOfWeek(now, { weekStartsOn: 1 });
+        break;
+      case 'last_week':
+        chartStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
+        chartEnd = endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
+        break;
+      case 'this_month':
+        chartStart = startOfMonth(now);
+        chartEnd = endOfMonth(now);
+        break;
+      case 'last_month':
+        chartStart = startOfMonth(subMonths(now, 1));
+        chartEnd = endOfMonth(subMonths(now, 1));
+        break;
+      case 'max':
+        chartStart = new Date(0);
+        chartEnd = now;
+        break;
+    }
+
+    const dailyData: Record<string, number> = {};
+
+    allFinanceData.forEach((entry: any) => {
+      const date = safeDate(entry.date);
+      const amount = Number(entry.amount);
+
+      // Global stats
+      if (isWithinInterval(date, todayInterval)) if (entry.type === 'entrada') dTotal += amount;
+      if (isWithinInterval(date, weekInterval)) if (entry.type === 'entrada') wTotal += amount;
+      if (isWithinInterval(date, monthInterval)) if (entry.type === 'entrada') mTotal += amount;
+
+      if (entry.type === 'entrada') totalIn += amount;
+      if (entry.type === 'saida') totalOut += amount;
+
+      // Chart data
+      if (isWithinInterval(date, { start: startOfDay(chartStart), end: endOfDay(chartEnd) })) {
+        const dayLabel = format(date, 'dd/MM');
+        dailyData[dayLabel] = (dailyData[dayLabel] || 0) + (entry.type === 'entrada' ? amount : -amount);
+      }
+    });
+
+    setStats(prev => ({
+      ...prev,
+      day: dTotal,
+      week: wTotal,
+      month: mTotal,
+      profit: totalIn - totalOut
+    }));
+
+    const chart = Object.entries(dailyData)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => {
+        const [dayA, monthA] = a.name.split('/').map(Number);
+        const [dayB, monthB] = b.name.split('/').map(Number);
+        return (monthA * 100 + dayA) - (monthB * 100 + dayB);
+      });
+    
+    setChartData(chart);
+  }, [allFinanceData, chartFilter]);
 
   const handleUpdateGoal = async () => {
     try {
       const g = Number(newGoal);
       if (isNaN(g)) return;
-      await updateDoc(doc(db, `users/${uid}`), {
-        revenueGoal: g,
-        updatedAt: Timestamp.now()
-      });
+      await setDoc(doc(db, 'users', uid), { 
+        revenue_goal: g,
+        updatedAt: serverTimestamp() 
+      }, { merge: true });
       setIsEditingGoal(false);
     } catch (e) {
       console.error(e);
     }
   };
 
-  const revenueGoal = userProfile?.revenueGoal || 5000;
+  const revenueGoal = userProfile?.revenue_goal || 5000;
   const progressPercent = Math.min((stats.month / revenueGoal) * 100, 100);
 
   const cards = [
@@ -245,9 +332,24 @@ export default function Dashboard({ uid }: DashboardProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 card-bg rounded-2xl p-6">
           <div className="flex items-center justify-between mb-8">
-            <h3 className="font-bold text-white">Desempenho Semanal</h3>
-            <select className="bg-zinc-900 text-xs border border-zinc-800 rounded px-2 py-1 outline-none text-zinc-400">
-              <option>Últimos 7 dias</option>
+            <h3 className="font-bold text-white">Desempenho Financeiro</h3>
+            <select 
+              value={chartFilter}
+              onChange={(e) => setChartFilter(e.target.value)}
+              className="bg-zinc-900 text-xs border border-zinc-800 rounded px-2 py-1 outline-none text-zinc-400 cursor-pointer hover:border-gold/50 transition-colors"
+            >
+              <option value="today">Hoje</option>
+              <option value="yesterday">Ontem</option>
+              <option value="today_yesterday">Hoje e ontem</option>
+              <option value="7days">Últimos 7 dias</option>
+              <option value="14days">Últimos 14 dias</option>
+              <option value="28days">Últimos 28 dias</option>
+              <option value="30days">Últimos 30 dias</option>
+              <option value="this_week">Esta semana</option>
+              <option value="last_week">Semana passada</option>
+              <option value="this_month">Este mês</option>
+              <option value="last_month">Mês passado</option>
+              <option value="max">Máximo</option>
             </select>
           </div>
           <div className="h-64 w-full">
@@ -283,7 +385,11 @@ export default function Dashboard({ uid }: DashboardProps) {
             </ResponsiveContainer>
           </div>
           <div className="flex justify-between mt-4 text-[10px] text-zinc-500 uppercase tracking-[0.2em] font-bold">
-            <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sab</span><span>Dom</span>
+            {chartData.length > 7 ? (
+              <span className="w-full text-center">Tendência do período selecionado</span>
+            ) : (
+              chartData.map(d => <span key={d.name}>{d.name}</span>)
+            )}
           </div>
         </div>
 
@@ -294,15 +400,15 @@ export default function Dashboard({ uid }: DashboardProps) {
               <div key={app.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/50 border border-zinc-800 group hover:border-[#d4af37]/30 transition-all">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400 capitalize">
-                    {app.clientName?.charAt(0) || 'C'}
+                    {(app.clientName || app.client_name || 'C').charAt(0)}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-white">{app.clientName}</p>
-                    <p className="text-[10px] text-zinc-500 italic">{app.serviceName}</p>
+                    <p className="text-sm font-medium text-white">{app.clientName || app.client_name || 'Cliente'}</p>
+                    <p className="text-[10px] text-zinc-500 italic">{app.serviceName || app.service_name || 'Serviço'}</p>
                   </div>
                 </div>
                 <span className="text-xs gold-text font-bold uppercase tracking-tighter">
-                  {format(app.date.toDate(), 'HH:mm')}
+                  {format(safeDate(app.date), 'HH:mm')}
                 </span>
               </div>
             ))}

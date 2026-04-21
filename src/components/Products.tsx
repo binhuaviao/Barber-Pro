@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Plus, Package, Edit2, Trash2, X, ShoppingBag } from 'lucide-react';
+import { Plus, Package, Edit2, Trash2, X, ShoppingBag, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -13,6 +13,7 @@ export default function Products({ uid }: ProductsProps) {
   const [products, setProducts] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({ name: '', price: '', stock: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -20,37 +21,50 @@ export default function Products({ uid }: ProductsProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, `users/${uid}/produtos`), orderBy('name'));
+    if (!uid) return;
+
+    const q = query(
+      collection(db, `users/${uid}/produtos`),
+      orderBy('name', 'asc')
+    );
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setProducts(data);
+    }, (err) => {
+      console.error(err);
+      setError('Erro ao carregar produtos.');
     });
+
     return () => unsubscribe();
   }, [uid]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
-      const data = {
+      const payload = {
         name: formData.name,
         price: Number(formData.price),
         stock: Number(formData.stock),
-        updatedAt: Timestamp.now()
+        updatedAt: serverTimestamp()
       };
 
       if (editingId) {
-        await updateDoc(doc(db, `users/${uid}/produtos`, editingId), data);
+        await updateDoc(doc(db, `users/${uid}/produtos`, editingId), payload);
       } else {
         await addDoc(collection(db, `users/${uid}/produtos`), {
-          ...data,
-          createdAt: Timestamp.now()
+          ...payload,
+          createdAt: serverTimestamp()
         });
       }
       setIsModalOpen(false);
       setFormData({ name: '', price: '', stock: '' });
       setEditingId(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setError(err.message || 'Erro ao salvar produto');
     } finally {
       setLoading(false);
     }
@@ -64,7 +78,12 @@ export default function Products({ uid }: ProductsProps) {
 
   const confirmDelete = async () => {
     if (deleteId) {
-      await deleteDoc(doc(db, `users/${uid}/produtos`, deleteId));
+      try {
+        await deleteDoc(doc(db, `users/${uid}/produtos`, deleteId));
+      } catch (err) {
+        console.error(err);
+        setError('Erro ao excluir produto');
+      }
       setDeleteId(null);
     }
   };
@@ -103,6 +122,13 @@ export default function Products({ uid }: ProductsProps) {
           Novo Produto
         </button>
       </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm">
+          <AlertCircle size={18} />
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {products.map(product => (

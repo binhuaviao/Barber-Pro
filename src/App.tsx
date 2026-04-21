@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, loginWithGoogle, logout } from './lib/firebase';
 import { 
@@ -19,7 +19,8 @@ import {
   X,
   TrendingUp,
   Plus,
-  Package
+  Package,
+  Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -236,30 +237,34 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Header */}
-        <header className="h-20 border-b border-[#1f1f1f] flex items-center justify-between px-8 bg-black/30 backdrop-blur-md sticky top-0 z-30">
-          <button 
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden text-zinc-400 hover:text-white"
-          >
-            <Menu size={24} />
-          </button>
-          
-          <div>
-            <h1 className="text-xl font-bold text-white">Olá, {user.displayName?.split(' ')[0]} 👋</h1>
-            <p className="text-xs text-zinc-500">Confira o resumo financeiro da sua barbearia hoje.</p>
+        <header className="h-20 border-b border-[#1f1f1f] flex items-center justify-between px-4 md:px-8 bg-black/30 backdrop-blur-md sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden text-zinc-400 hover:text-white p-2"
+            >
+              <Menu size={24} />
+            </button>
+            
+            <div className="flex flex-col">
+              <h1 className="text-sm md:text-xl font-bold text-white truncate max-w-[120px] md:max-w-none">Olá, {user.displayName?.split(' ')[0]} 👋</h1>
+              <p className="text-[10px] md:text-xs text-zinc-500 hidden sm:block">Confira o resumo da sua barbearia hoje.</p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <button className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors">Exportar Relatório</button>
+          <div className="flex items-center gap-2 md:gap-4">
             <button 
               onClick={() => setCurrentView('servicos')} 
-              className="px-4 py-2 gold-gradient text-black rounded-lg text-xs font-bold shadow-lg shadow-yellow-900/10 active:scale-95 transition-all"
-            >+ Novo Serviço</button>
+              className="px-3 md:px-4 py-2 gold-gradient text-black rounded-lg text-xs font-black shadow-lg shadow-yellow-900/10 active:scale-95 transition-all flex items-center gap-1"
+            >
+              <Plus size={16} />
+              <span className="hidden sm:inline">Novo Serviço</span>
+            </button>
           </div>
         </header>
 
         {/* View Content */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentView}

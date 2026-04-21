@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, addDoc, deleteDoc, doc, Timestamp, orderBy, updateDoc, increment } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Plus, ArrowUpCircle, ArrowDownCircle, Trash2, Calendar, Filter, X, ShoppingBag } from 'lucide-react';
+import { safeDate } from '../lib/dateUtils';
+import { Plus, ArrowUpCircle, ArrowDownCircle, Trash2, Calendar, Filter, X, ShoppingBag, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
@@ -15,6 +16,7 @@ export default function Finance({ uid }: FinanceProps) {
   const [products, setProducts] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({ 
     type: 'entrada', 
@@ -27,19 +29,27 @@ export default function Finance({ uid }: FinanceProps) {
   });
 
   useEffect(() => {
-    const qFinance = query(collection(db, `users/${uid}/financeiro`), orderBy('date', 'desc'));
-    const unsubFinance = onSnapshot(qFinance, (snapshot) => {
-      setEntries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    if (!uid) return;
+
+    // 1. Finance entries
+    const qFin = query(
+      collection(db, `users/${uid}/financeiro`),
+      orderBy('date', 'desc')
+    );
+    const unsubscribeFin = onSnapshot(qFin, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setEntries(data);
     });
 
-    const qProducts = query(collection(db, `users/${uid}/produtos`), orderBy('name'));
-    const unsubProducts = onSnapshot(qProducts, (snapshot) => {
+    // 2. Products
+    const qProd = query(collection(db, `users/${uid}/produtos`), orderBy('name', 'asc'));
+    const unsubscribeProd = onSnapshot(qProd, (snapshot) => {
       setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
     return () => {
-      unsubFinance();
-      unsubProducts();
+      unsubscribeFin();
+      unsubscribeProd();
     };
   }, [uid]);
 
@@ -81,24 +91,30 @@ export default function Finance({ uid }: FinanceProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
+      const dateObj = new Date(formData.date + 'T12:00:00');
+
       // 1. Add financial entry
       await addDoc(collection(db, `users/${uid}/financeiro`), {
         type: formData.type,
         amount: Number(formData.amount),
         description: formData.description,
         category: formData.category,
-        date: Timestamp.fromDate(new Date(formData.date + 'T12:00:00')),
-        referenceId: formData.productId || null,
-        createdAt: Timestamp.now()
+        date: Timestamp.fromDate(dateObj),
+        reference_id: formData.productId || null,
+        createdAt: serverTimestamp()
       });
 
       // 2. If it's a product sale, decrement stock
       if (formData.productId && formData.type === 'entrada') {
         const qty = Number(formData.quantity);
-        await updateDoc(doc(db, `users/${uid}/produtos`, formData.productId), {
-          stock: increment(-qty)
-        });
+        const product = products.find(p => p.id === formData.productId);
+        if (product) {
+          await updateDoc(doc(db, `users/${uid}/produtos`, formData.productId), {
+            stock: Number(product.stock) - qty
+          });
+        }
       }
 
       setIsModalOpen(false);
@@ -111,8 +127,9 @@ export default function Finance({ uid }: FinanceProps) {
         productId: '',
         quantity: '1'
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setError(err.message || 'Erro ao registrar lançamento');
     } finally {
       setLoading(false);
     }
@@ -120,7 +137,12 @@ export default function Finance({ uid }: FinanceProps) {
 
   const handleDelete = async (id: string) => {
     if (confirm('Excluir este lançamento?')) {
-      await deleteDoc(doc(db, `users/${uid}/financeiro`, id));
+      try {
+        await deleteDoc(doc(db, `users/${uid}/financeiro`, id));
+      } catch (err) {
+        console.error(err);
+        setError('Erro ao excluir lançamento');
+      }
     }
   };
 
@@ -142,6 +164,13 @@ export default function Finance({ uid }: FinanceProps) {
           Novo Lançamento
         </button>
       </div>
+
+      {error && (
+        <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm">
+          <AlertCircle size={18} />
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="glass-card p-6 border-l-4 border-green-500">
@@ -166,7 +195,7 @@ export default function Finance({ uid }: FinanceProps) {
           </div>
         </div>
         
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="text-xs font-bold text-zinc-600 uppercase border-b border-zinc-800">
@@ -181,7 +210,7 @@ export default function Finance({ uid }: FinanceProps) {
               {entries.map(entry => (
                 <tr key={entry.id} className="border-b border-zinc-800/40 hover:bg-zinc-800/20 transition-colors">
                   <td className="p-4 text-sm text-zinc-400">
-                    {format(entry.date.toDate(), 'dd/MM/yyyy')}
+                    {format(safeDate(entry.date), 'dd/MM/yyyy')}
                   </td>
                   <td className="p-4">
                     <div className="flex flex-col">
@@ -210,6 +239,41 @@ export default function Finance({ uid }: FinanceProps) {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile View */}
+        <div className="md:hidden divide-y divide-zinc-800">
+          {entries.map(entry => (
+            <div key={entry.id} className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "p-2 rounded-lg",
+                  entry.type === 'entrada' ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
+                )}>
+                  {entry.type === 'entrada' ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-bold text-sm block truncate max-w-[120px]">{entry.description || 'Sem descrição'}</span>
+                  <span className="text-[10px] text-zinc-500 flex items-center gap-2 font-bold uppercase">
+                    {format(safeDate(entry.date), 'dd/MM/yyyy')}
+                    <span className="w-1 h-1 rounded-full bg-zinc-700" />
+                    {entry.category || 'Geral'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={cn(
+                  "font-mono font-bold text-sm",
+                  entry.type === 'entrada' ? "text-green-400" : "text-red-400"
+                )}>
+                  {entry.type === 'entrada' ? '+' : '-'} R$ {entry.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+                <button onClick={() => handleDelete(entry.id)} className="p-2 text-zinc-600 hover:text-red-500">
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
         {entries.length === 0 && (
           <div className="p-12 text-center text-zinc-600 italic">Nenhuma transação registrada.</div>
