@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useMemo } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User, getRedirectResult } from 'firebase/auth';
 import { auth, loginWithGoogle, logout } from './lib/firebase';
 import { 
   LayoutDashboard, 
@@ -35,6 +35,7 @@ import Products from './components/Products';
 import Appointments from './components/Appointments';
 import Finance from './components/Finance';
 import Reports from './components/Reports';
+import PwaInstallBanner from './components/PwaInstallBanner';
 
 type View = 'dashboard' | 'clientes' | 'servicos' | 'produtos' | 'agendamentos' | 'financeiro' | 'relatorios';
 
@@ -59,6 +60,11 @@ export default function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
+    // Handle redirect result for environments where popup fails and redirects (like some APKs)
+    getRedirectResult(auth).catch((error) => {
+      console.error("Erro ao processar redirecionamento:", error);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -322,6 +328,7 @@ export default function App() {
           </AnimatePresence>
         </div>
       </main>
+      <PwaInstallBanner />
     </div>
   );
 }
