@@ -1,9 +1,9 @@
 const CACHE_NAME = 'barberpro-cache-v2';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/logo.svg'
+  './',
+  './index.html',
+  './manifest.json',
+  './logo.svg'
 ];
 
 self.addEventListener('install', (event) => {
