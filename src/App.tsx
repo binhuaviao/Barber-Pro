@@ -216,31 +216,6 @@ export default function App() {
                 {item.label}
               </button>
             ))}
-            
-            {/* Support CTA */}
-            <div className="mt-8 px-2">
-              <div className={cn(
-                "p-4 rounded-xl border relative overflow-hidden group transition-colors",
-                isDarkMode 
-                  ? "bg-zinc-900 border-zinc-800" 
-                  : "bg-gold/10 border-gold/20"
-              )}>
-                <div className="absolute -top-6 -right-6 w-16 h-16 bg-gold/10 rounded-full blur-xl group-hover:bg-gold/20 transition-all" />
-                <p className="text-[10px] font-black text-gold uppercase tracking-[0.2em] mb-2">Apoie o Projeto</p>
-                <p className={cn("text-[11px] mb-4 leading-relaxed font-medium", isDarkMode ? "text-zinc-400" : "text-gold-dark font-semibold")}>Ajude-nos a manter e evoluir o BarberPro via Mercado Pago.</p>
-                <a 
-                  href="https://mpago.la/1FTq8fL" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className={cn(
-                    "block w-full text-center py-2 text-[11px] font-bold rounded-lg transition-colors active:scale-95",
-                    isDarkMode ? "bg-white text-black hover:bg-gold" : "btn-primary hover:scale-[1.02]"
-                  )}
-                >
-                  APOIAR AGORA
-                </a>
-              </div>
-            </div>
           </nav>
 
           <div className={cn("p-4 border-t", isDarkMode ? "border-[#1f1f1f]" : "border-zinc-200")}>

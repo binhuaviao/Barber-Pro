@@ -245,33 +245,6 @@ export default function Dashboard({ uid, onNavigate }: DashboardProps) {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Support Banner */}
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="card-bg p-6 rounded-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 gold-border"
-      >
-        <div className="absolute top-0 right-0 w-32 h-32 bg-gold/5 rounded-full blur-3xl -mr-10 -mt-10" />
-        <div className="flex items-center gap-4 relative z-10">
-          <div className="w-12 h-12 rounded-xl bg-gold/10 flex items-center justify-center text-gold">
-            <TrendingUp size={24} />
-          </div>
-          <div>
-            <h4 className="font-bold text-white">Contribua com a evolução do BarberPro 🚀</h4>
-            <p className="text-sm text-zinc-500">Seu apoio via Mercado Pago nos ajuda a lançar novas funcionalidades.</p>
-          </div>
-        </div>
-        <a 
-          href="https://mpago.la/1FTq8fL" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="btn-primary flex items-center gap-2 px-8 group font-black"
-        >
-          Apoiar no Mercado Pago
-          <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
-        </a>
-      </motion.div>
-
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {cards.map((card, idx) => (

@@ -1,8 +1,9 @@
-const CACHE_NAME = 'barberpro-cache-v1';
+const CACHE_NAME = 'barberpro-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/logo.svg'
 ];
 
 self.addEventListener('install', (event) => {
@@ -40,7 +41,7 @@ self.addEventListener('fetch', (event) => {
       }
       return fetch(event.request).then((networkResponse) => {
         // Don't cache firestore or external API calls here for now to avoid issues
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+        if (!networkResponse || networkResponse.status !== 200) {
           return networkResponse;
         }
         
