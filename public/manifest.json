@@ -2,28 +2,28 @@
   "name": "BarberPro - Gestão Premium",
   "short_name": "BarberPro",
   "description": "Sistema completo para gestão de barbearias e controle financeiro.",
-  "id": "/Barber-Pro/?source=pwa",
-  "start_url": "/Barber-Pro/?source=pwa",
-  "scope": "/Barber-Pro/",
+  "id": "/?source=pwa",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#050505",
   "theme_color": "#d4af37",
   "icons": [
     {
-      "src": "/Barber-Pro/logo.svg",
+      "src": "/logo.svg",
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/Barber-Pro/logo.svg",
+      "src": "/logo.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/Barber-Pro/logo.svg",
+      "src": "/logo.svg",
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "maskable"
